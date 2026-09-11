@@ -110,7 +110,7 @@ void _notify(String message) {
     _telemetryTimeoutTimer = Timer(_telemetryTimeoutDuration, () {
       _notify('Sinyal kesildi! Araçtan yanıt alınamıyor.');
       // 1000 ms boyunca ESP32'den hiçbir veri gelmediyse bağlantıyı koptu say
-      _handleDisconnect();
+      
     });
   }
   void _parseTelemetry(String message) {
@@ -185,6 +185,7 @@ void _notify(String message) {
 
   void sendThrottle(int value) {
     value = value.clamp(-100, 100);
+    print(value);
 
     _send(
       'T:$value',
@@ -197,7 +198,7 @@ void _notify(String message) {
 
   void sendSteering(int angle) {
     angle = angle.clamp(30, 90);
-
+    print("direksiyon");
     _send(
       'S:$angle',
     );

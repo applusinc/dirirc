@@ -26,6 +26,27 @@
     <string>$(FLUTTER_BUILD_NUMBER)</string>
     <key>LSRequiresIPhoneOS</key>
     <true/>
+    
+    <!-- WebSocket ve HTTP Bağlantı İzinleri -->
+    <key>NSAppTransportSecurity</key>
+    <dict>
+      <key>NSAllowsArbitraryLoads</key>
+      <true/>
+      <key>NSAllowsLocalNetworking</key>
+      <true/>
+    </dict>
+
+    <!-- Yerel Ağ Erişim İzni (iOS 14+ ESP32 Bağlantısı İçin Şart) -->
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>DİRİ RC uygulaması ESP32 kontrol kartına bağlanabilmek için yerel ağ erişimine ihtiyaç duyar.</string>
+
+    <!-- Bonjour Servis İzinleri -->
+    <key>NSBonjourServices</key>
+    <array>
+      <string>_http._tcp</string>
+      <string>_ws._tcp</string>
+    </array>
+
     <key>UIApplicationSceneManifest</key>
     <dict>
       <key>UIApplicationSupportsMultipleScenes</key>
