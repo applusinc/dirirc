@@ -29,6 +29,7 @@ class _ControllerScreenState
   StreamSubscription? _pongSubscription;
 
   Timer? _pingTimer;
+  int _currentLightMode = 0;
 
   CarStatus status =
       const CarStatus();
@@ -135,36 +136,83 @@ class _ControllerScreenState
   void openSettings() {
     showDialog(
       context: context,
-      builder: (_) {
-        return AlertDialog(
-          title:
-              const Text('Ayarlar'),
+      builder: (context) {
+        return StreamBuilder<CarStatus>(
+          stream: widget.socket.statusStream,
+          initialData: widget.socket.currentStatus,
+          builder: (context, snapshot) {
+            final currentStatus = snapshot.data ?? status;
 
-          content:
-              const Text(
-            'Maksimum hız\n'
-            'Direksiyon minimum\n'
-            'Direksiyon merkez\n'
-            'Direksiyon maksimum\n'
-            'Kalibrasyon\n\n'
-            'Bu bölüm daha sonra eklenecek.',
-          ),
-
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(
-                  context,
-                );
-              },
-              child:
-                  const Text('KAPAT'),
-            ),
-          ],
+            return AlertDialog(
+              backgroundColor: const Color(0xFF151A22),
+              title: const Text(
+                'Araç Ayarları',
+                style: TextStyle(color: Colors.white),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Maks. İleri Hız: %${currentStatus.maxForwardSpeed}',
+                      style: const TextStyle(color: Colors.white70),
+                    ),
+                    Slider(
+                      value: currentStatus.maxForwardSpeed.toDouble(),
+                      min: 10,
+                      max: 100,
+                      divisions: 18,
+                      onChanged: (val) {
+                        widget.socket.sendMaxForwardSpeed(val.round());
+                      },
+                    ),
+                    const Divider(color: Colors.white12),
+                    Text(
+                      'Maks. Geri Hız: %${currentStatus.maxReverseSpeed}',
+                      style: const TextStyle(color: Colors.white70),
+                    ),
+                    Slider(
+                      value: currentStatus.maxReverseSpeed.toDouble(),
+                      min: 10,
+                      max: 100,
+                      divisions: 18,
+                      onChanged: (val) {
+                        widget.socket.sendMaxReverseSpeed(val.round());
+                      },
+                    ),
+                    const Divider(color: Colors.white12),
+                    Text(
+                      'Hızlanma Sertliği (ACC): ${currentStatus.rampStep}',
+                      style: const TextStyle(color: Colors.white70),
+                    ),
+                    Slider(
+                      value: currentStatus.rampStep.toDouble(),
+                      min: 1,
+                      max: 20,
+                      divisions: 19,
+                      onChanged: (val) {
+                        widget.socket.sendRampStep(val.round());
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text(
+                    'KAPAT',
+                    style: TextStyle(color: Colors.orange),
+                  ),
+                ),
+              ],
+            );
+          },
         );
       },
     );
   }
+  
 
   @override
   Widget build(
@@ -237,32 +285,24 @@ class _ControllerScreenState
 
                         value:
                             '${status.throttle}%',
+                        onHornPressed: () => widget.socket.sendHorn(),
+                        onLightPressed: () {
+                          _currentLightMode = (_currentLightMode + 1) % 5;
+                          widget.socket.sendLightMode(_currentLightMode);
+                        },
+                        onTurboChanged: (active) =>
+                            widget.socket.sendTurbo(active),
+                        child: ThrottleSlider(
+                          initialValue: status.throttle,
+                          onChanged: (value) =>
+                              widget.socket.sendThrottle(value),
+                          onReleased: () => widget.socket.stop(),
+                        ),)),
 
-                        child:
-                            ThrottleSlider(
-                          initialValue:
-                              status.throttle,
+                        
+                           
 
-                          onChanged:
-                              (value) {
-                            widget.socket
-                                .sendThrottle(
-                              value,
-                            );
-                          },
-
-                          onReleased:
-                              () {
-                            widget.socket
-                                .stop();
-                          },
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(
-                      width: 7,
-                    ),
+                    
 
                     // ==========================================
                     // ORTA
@@ -340,11 +380,17 @@ class _ControlCard
   final String title;
   final String value;
   final Widget child;
+  final VoidCallback onHornPressed;
+  final VoidCallback onLightPressed;
+  final Function(bool active) onTurboChanged;
 
   const _ControlCard({
     required this.title,
     required this.value,
     required this.child,
+    required this.onHornPressed,
+    required this.onLightPressed,
+    required this.onTurboChanged,
   });
 
   @override
@@ -385,40 +431,94 @@ class _ControlCard
           // Büyük kontrol alanı
           child,
           const SizedBox(width: 12,),
-          Row(
-            mainAxisAlignment:
-                MainAxisAlignment.center,
-
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                title,
-
-                style:
-                    const TextStyle(
-                  color:
-                      Colors.white54,
-
-                  fontSize: 12,
-
-                  fontWeight:
-                      FontWeight.bold,
+              Column(
+                mainAxisAlignment:
+                    MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+              
+                children: [
+                  Text(
+                    title,
+              
+                    style:
+                        const TextStyle(
+                      color:
+                          Colors.white54,
+              
+                      fontSize: 12,
+              
+                      fontWeight:
+                          FontWeight.bold,
+                    ),
+                  ),
+              
+                  const SizedBox(
+                    width: 9,
+                  ),
+              
+                  Text(
+                    value,
+              
+                    style:
+                        const TextStyle(
+                      fontSize: 21,
+              
+                      fontWeight:
+                          FontWeight.w900,
+                    ),
+                  ),
+                  IconButton.filled(
+                constraints: const BoxConstraints(minWidth: 100, minHeight: 40),
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.amber.shade800,
                 ),
+                icon: const Icon(Icons.campaign, color: Colors.white, size: 20),
+                onPressed: onHornPressed,
               ),
-
-              const SizedBox(
-                width: 9,
-              ),
-
-              Text(
-                value,
-
-                style:
-                    const TextStyle(
-                  fontSize: 21,
-
-                  fontWeight:
-                      FontWeight.w900,
+              const SizedBox(height: 7,),
+              IconButton.filled(
+                constraints: const BoxConstraints(minWidth: 100, minHeight: 40),
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.blueAccent,
                 ),
+                icon:
+                    const Icon(Icons.lightbulb, color: Colors.white, size: 20),
+                onPressed: onLightPressed,
+              ),
+              const SizedBox(height: 7,),
+              GestureDetector(
+                onTapDown: (_) => onTurboChanged(true),
+                onTapUp: (_) => onTurboChanged(false),
+                onTapCancel: () => onTurboChanged(false),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade900,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.red, width: 1.5),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.bolt, color: Colors.yellow, size: 16),
+                      SizedBox(width: 2),
+                      Text(
+                        'TURBO',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),)
+                  
+                ],
               ),
             ],
           ),
@@ -618,7 +718,6 @@ class _CenterPanel
 // =============================================================
 
 class _BottomBar extends StatelessWidget {
-
   final CarStatus status;
   final int ping;
 
@@ -628,75 +727,35 @@ class _BottomBar extends StatelessWidget {
   });
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 14,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF151A22),
+        borderRadius: BorderRadius.circular(11),
       ),
-
-      decoration:
-          BoxDecoration(
-        color:
-            const Color(
-          0xFF151A22,
-        ),
-
-        borderRadius:
-            BorderRadius.circular(
-          11,
-        ),
-      ),
-
       child: Row(
-        mainAxisAlignment:
-            MainAxisAlignment.spaceBetween,
-
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-
-          Text(
-            'Maks. hız %100',
-            style:
-                const TextStyle(
-              color:
-                  Colors.white38,
-              fontSize: 10,
-            ),
+           Text(
+            'Maks. hız %${status.maxForwardSpeed}',
+            style: TextStyle(color: Colors.white38, fontSize: 10),
           ),
-
           Text(
             'Direksiyon ${status.steering}°',
-            style:
-                const TextStyle(
-              color:
-                  Colors.white38,
-              fontSize: 10,
-            ),
+            style: const TextStyle(color: Colors.white38, fontSize: 10),
           ),
-
           Text(
             'Ping $ping ms',
-            style:
-                const TextStyle(
-              color:
-                  Colors.white38,
-              fontSize: 10,
-            ),
+            style: const TextStyle(color: Colors.white38, fontSize: 10),
           ),
-
           Text(
             'Akü ${status.batteryVoltage.toStringAsFixed(2)} V',
-            style:
-                const TextStyle(
-              color:
-                  Colors.white38,
-              fontSize: 10,
-            ),
+            style: const TextStyle(color: Colors.white38, fontSize: 10),
           ),
         ],
       ),
     );
   }
+
 }

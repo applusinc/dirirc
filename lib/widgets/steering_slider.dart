@@ -9,7 +9,7 @@ class SteeringSlider extends StatefulWidget {
     super.key,
     required this.onChanged,
     this.onReleased,
-    this.initialValue = 64,
+    this.initialValue = 60,
   });
 
   @override

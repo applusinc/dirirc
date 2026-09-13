@@ -30,6 +30,7 @@ final StreamController<String> _notificationController =
 
   bool get isConnected =>
       _status.connected;
+      CarStatus get currentStatus => _status;
       Stream<String> get notificationStream => _notificationController.stream;
 void _notify(String message) {
     if (!_notificationController.isClosed) {
@@ -129,38 +130,25 @@ void _notify(String message) {
       int steering =
           _status.steering;
       
-
+      int mf = _status.maxForwardSpeed;
+      int mr = _status.maxReverseSpeed;
+      int acc = _status.rampStep;
       for (final section in sections) {
         if (section.startsWith('V:')) {
-          final values =
-              section.substring(2)
-                  .split(',');
-
-          if (values.length >= 2) {
-            battery =
-                double.tryParse(
-                  values[0],
-                ) ??
-                battery;
-
-            
+          final values = section.substring(2).split(',');
+          if (values.isNotEmpty) {
+            battery = double.tryParse(values[0]) ?? battery;
           }
-        }
-
-        if (section.startsWith('T:')) {
-          throttle =
-              int.tryParse(
-                section.substring(2),
-              ) ??
-              throttle;
-        }
-
-        if (section.startsWith('S:')) {
-          steering =
-              int.tryParse(
-                section.substring(2),
-              ) ??
-              steering;
+        } else if (section.startsWith('T:')) {
+          throttle = int.tryParse(section.substring(2)) ?? throttle;
+        } else if (section.startsWith('S:')) {
+          steering = int.tryParse(section.substring(2)) ?? steering;
+        } else if (section.startsWith('MF:')) {
+          mf = int.tryParse(section.substring(3)) ?? mf;
+        } else if (section.startsWith('MR:')) {
+          mr = int.tryParse(section.substring(3)) ?? mr;
+        } else if (section.startsWith('ACC:')) {
+          acc = int.tryParse(section.substring(4)) ?? acc;
         }
       }
 
@@ -169,6 +157,9 @@ void _notify(String message) {
         throttle: throttle,
         steering: steering,
         connected: true,
+        maxForwardSpeed: mf,
+        maxReverseSpeed: mr,
+        rampStep: acc,
       );
 
       _emitStatus();
@@ -204,6 +195,32 @@ void _notify(String message) {
     );
     
   }
+  void sendHorn() {
+  _send('HORN');
+}
+void sendTurbo(bool active) {
+  if(active){
+    _send('TURBO:1');
+  }else {
+    stop();
+    _send('TURBO:0');
+  }
+}
+void sendLightMode(int mode) {
+  _send('L:$mode');
+}
+void sendMaxForwardSpeed(int limit) {
+  limit = limit.clamp(0, 100);
+  _send('SET:MF:$limit');
+}
+void sendMaxReverseSpeed(int limit) {
+  limit = limit.clamp(0, 100);
+  _send('SET:MR:$limit');
+}
+void sendRampStep(int step) {
+  step = step.clamp(1, 20);
+  _send('SET:ACC:$step');
+}
 
   void ping() {
     final timestamp =
